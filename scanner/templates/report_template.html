@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Jenkins Scanner Report</title></head>
+<body>
+  <h1>Jenkins Scanner Report</h1>
+  <p>Target: {{ report.target }}</p>
+
+  <h2>Basic</h2>
+  <pre>{{ report.basic | tojson(indent=2) }}</pre>
+
+  <h2>Plugins</h2>
+  {% if report.plugin_error %}
+    <p><strong>Plugin fetch error:</strong> {{ report.plugin_error }}</p>
+  {% endif %}
+
+  {% if report.plugins and report.plugins|length > 0 %}
+    <ul>
+    {% for p in report.plugins[:20] %}
+      <li>{{ p.shortName }} — {{ p.version }} {% if not p.enabled %}(disabled){% endif %}</li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p>No plugin information available.</p>
+  {% endif %}
+
+  <p>Generated: {{ generated }}</p>
+</body>
+</html>

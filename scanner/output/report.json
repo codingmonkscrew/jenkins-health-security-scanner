@@ -1,0 +1,8 @@
+{
+  "target": "http://host.docker.internal:8080",
+  "basic": {
+    "error": "403 Client Error: Forbidden for url: http://host.docker.internal:8080/api/json"
+  },
+  "plugins": [],
+  "plugin_error": "403 Client Error: Forbidden for url: http://host.docker.internal:8080/pluginManager/api/json?depth=1"
+}
