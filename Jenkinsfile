@@ -24,9 +24,9 @@ pipeline {
           sh '''
             mkdir -p output
             # Try to run with host network (Linux or when Docker socket works).
-            docker run --rm --network host -v $(pwd)/output:/app/output $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url http://host.docker.internal:8080 || \
+            docker run --rm --network host -v $(pwd)/output:/app/output $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url http://host.docker.internal:9090 || \
             # Fallback: run without --network host (works on many systems)
-            docker run --rm -v $(pwd)/output:/app/output $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url http://localhost:8080
+            docker run --rm -v $(pwd)/output:/app/output $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url http://localhost:9090
           '''
         }
       }
