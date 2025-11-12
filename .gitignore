@@ -1,0 +1,5 @@
+# local output and virtualenv
+scanner/output/
+__pycache__/
+*.pyc
+.env
