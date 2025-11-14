@@ -3,7 +3,7 @@ pipeline {
   
   environment {
     SCANNER_IMAGE = "jenkins-scanner:${env.BUILD_NUMBER}"
-    JENKINS_URL = "http://host.docker.internal:8080"
+    JENKINS_URL = "http://host.docker.internal:9090"
     JENKINS_USER = "Manish Behera"
     JENKINS_TOKEN = credentials('1134544e152f8ec57095ff91ffd9e2bff6')
   }
