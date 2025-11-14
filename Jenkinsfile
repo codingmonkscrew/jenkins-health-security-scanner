@@ -3,6 +3,9 @@ pipeline {
   
   environment {
     SCANNER_IMAGE = "jenkins-scanner:${env.BUILD_NUMBER}"
+    JENKINS_URL = "http://host.docker.internal:8080"
+    JENKINS_USER = "Manish Behera"
+    JENKINS_TOKEN = credentials('1134544e152f8ec57095ff91ffd9e2bff6')
   }
   
   stages {
@@ -25,7 +28,16 @@ pipeline {
         dir('scanner') {
           sh '''
             mkdir -p output
-            docker run --rm -v $(pwd)/output:/app/output $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url http://host.docker.internal:9090
+            docker run --rm \
+              -v $(pwd)/output:/app/output \
+              -e JENKINS_USER="$JENKINS_USER" \
+              -e JENKINS_TOKEN="$JENKINS_TOKEN" \
+              $SCANNER_IMAGE \
+              --output /app/output/report.json \
+              --render /app/output/report.html \
+              --url $JENKINS_URL \
+              --username "$JENKINS_USER" \
+              --token "$JENKINS_TOKEN"
           '''
         }
       }
@@ -41,7 +53,6 @@ pipeline {
       steps {
         script {
           sh '''
-            # Remove scanner images older than the last 5 builds
             docker images jenkins-scanner --format "{{.Tag}}" | sort -rn | tail -n +6 | xargs -r -I {} docker rmi jenkins-scanner:{} || true
           '''
         }
@@ -52,13 +63,9 @@ pipeline {
   post {
     always {
       echo "Build ${env.BUILD_NUMBER} completed"
-      sh 'docker images jenkins-scanner'
     }
     success {
       echo "Scanner report generated successfully!"
-    }
-    failure {
-      echo "Pipeline failed. Check Docker permissions and scanner logs."
     }
   }
 }
