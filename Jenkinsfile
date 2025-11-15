@@ -1,62 +1,46 @@
 pipeline {
-    agent any
-
-    environment {
-        SCANNER_IMAGE = "jenkins-scanner:${BUILD_NUMBER}"
+  agent any
+  
+  environment {
+    SCANNER_IMAGE = "jenkins-scanner:${env.BUILD_NUMBER}"
+    JENKINS_URL = "http://host.docker.internal:9090"
+    JENKINS_USER = "Manish Behera"  
+    JENKINS_TOKEN = credentials('scanner-token')
+  }
+  
+  stages {
+    stage('Checkout') {
+      steps { 
+        checkout scm 
+      }
     }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
+    
+    stage('Build scanner image') {
+      steps {
+        dir('scanner') {
+          sh 'docker build -t $SCANNER_IMAGE .'
         }
-
-        stage('Build scanner image') {
-            steps {
-                dir('scanner') {
-                    sh 'docker build -t $SCANNER_IMAGE .'
-                }
-            }
-        }
-
-        stage('Run scanner') {
-            steps {
-                dir('scanner') {
-                    sh '''
-                        mkdir -p output &&
-                        docker run --rm -v $(pwd)/output:/app/output $SCANNER_IMAGE \
-                            --output /app/output/report.json \
-                            --render /app/output/report.html \
-                            --url http://host.docker.internal:9090
-                    '''
-                }
-            }
-        }
-
-        stage('Archive') {
-            steps {
-                archiveArtifacts artifacts: '**/output/**', allowEmptyArchive: true
-            }
-        }
-
-        stage('Cleanup old images') {
-            steps {
-                script {
-                    sh '''
-                        # Remove scanner images older than the last 5 builds
-                        docker images jenkins-scanner --format "{{.Tag}}" | sort -rn | tail -n +6 | xargs -r -I {} docker rmi jenkins-scanner:{} || true
-                    '''
-                }
-            }
-        }
+      }
     }
-
-    post {
-        always {
-            echo "Build ${BUILD_NUMBER} completed"
-            sh 'docker images jenkins-scanner'
-            echo 'Scanner report generated successfully!'
+    
+    stage('Run scanner') {
+      steps {
+        dir('scanner') {
+          sh '''
+            mkdir -p output
+            # Try to run with host network (Linux or when Docker socket works).
+            docker run --rm --network host -v $(pwd)/output:/app/output -e JENKINS_USER="$JENKINS_USER" -e JENKINS_TOKEN="$JENKINS_TOKEN" $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url $JENKINS_URL --username "$JENKINS_USER" --token "$JENKINS_TOKEN" || \
+            # Fallback: run without --network host (works on many systems)
+            docker run --rm -v $(pwd)/output:/app/output -e JENKINS_USER="$JENKINS_USER" -e JENKINS_TOKEN="$JENKINS_TOKEN" $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url $JENKINS_URL --username "$JENKINS_USER" --token "$JENKINS_TOKEN"
+          '''
         }
+      }
     }
+    
+    stage('Archive') {
+      steps {
+        archiveArtifacts artifacts: 'scanner/output/**', fingerprint: true
+      }
+    }
+  }
 }
