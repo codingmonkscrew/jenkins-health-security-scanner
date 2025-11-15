@@ -1,45 +1,62 @@
+// Jenkinsfile — Scanner build + run + archive
 pipeline {
   agent any
-  
+
   environment {
-    SCANNER_IMAGE = "jenkins-scanner:${env.BUILD_NUMBER}"
+    IMAGE_NAME = "jenkins-scanner"
+    IMAGE_TAG  = "5"
+    SCANNER_DIR = "scanner"
+    OUTPUT_DIR = "${env.WORKSPACE}/${SCANNER_DIR}/output"
     JENKINS_URL = "http://host.docker.internal:9090"
-    JENKINS_USER = "Manish Behera"
-    JENKINS_TOKEN = credentials('scanner-token')
   }
-  
+
   stages {
     stage('Checkout') {
-      steps { 
-        checkout scm 
+      steps {
+        // explicit checkout (equivalent to the logs you showed)
+        checkout scm
       }
     }
-    
+
     stage('Build scanner image') {
       steps {
-        dir('scanner') {
-          sh 'docker build -t $SCANNER_IMAGE .'
+        dir("${SCANNER_DIR}") {
+          // match your log: docker build -t jenkins-scanner:5 .
+          sh """
+            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+          """
         }
       }
     }
-    
+
     stage('Run scanner') {
       steps {
-        dir('scanner') {
-          sh '''
-            mkdir -p output
-            # Try to run with host network (Linux or when Docker socket works).
-            docker run --rm --network host -v $(pwd)/output:/app/output -e JENKINS_USER="$JENKINS_USER" -e JENKINS_TOKEN="$JENKINS_TOKEN" $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url $JENKINS_URL --username "$JENKINS_USER" --token "$JENKINS_TOKEN" || \
-            # Fallback: run without --network host (works on many systems)
-            docker run --rm -v $(pwd)/output:/app/output -e JENKINS_USER="$JENKINS_USER" -e JENKINS_TOKEN="$JENKINS_TOKEN" $SCANNER_IMAGE --output /app/output/report.json --render /app/output/report.html --url $JENKINS_URL --username "$JENKINS_USER" --token "$JENKINS_TOKEN"
-          '''
+        dir("${SCANNER_DIR}") {
+          sh """
+            mkdir -p ${OUTPUT_DIR}
+            # run using host network and mount output
+            docker run --rm --network host \\
+              -v "${OUTPUT_DIR}:/app/output" \\
+              ${IMAGE_NAME}:${IMAGE_TAG} \\
+              --output /app/output/report.json --render /app/output/report.html --url ${JENKINS_URL}
+          """
         }
       }
     }
-    
+
     stage('Archive') {
       steps {
-        archiveArtifacts artifacts: 'scanner/output/**', fingerprint: true
+        // archive generated reports
+        archiveArtifacts artifacts: "${SCANNER_DIR}/output/**", fingerprint: true
+      }
+    }
+  }
+
+  post {
+    always {
+      // optional cleanup: remove local image to avoid disk growth
+      script {
+        sh "docker image rm ${IMAGE_NAME}:${IMAGE_TAG} || true"
       }
     }
   }
